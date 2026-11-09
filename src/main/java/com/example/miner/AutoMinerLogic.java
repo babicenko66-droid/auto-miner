@@ -1077,4 +1077,4 @@ public class AutoMinerLogic {
 
         return false;
     }
-   
+}
