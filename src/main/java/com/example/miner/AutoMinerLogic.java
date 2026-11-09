@@ -313,44 +313,7 @@ public class AutoMinerLogic {
             if (!enabled) releaseKeys(mc);
         }
     }
-    private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
-              if (pickupTicks > 0) {
-            return false;
-        }
-
-        BlockPos playerPos = player.blockPosition();
-        if (playerPos.getY() < MIN_Y) {
-            BlockPos diamondPos = findNearestOre(level, playerPos, ORE_SCAN);
-            if (diamondPos != null && !IGNORED_LOW_ORES.contains(diamondPos)) {
-                isReturningToSafeY = false;
-                mineBlockPos(mc, level, player, diamondPos);
-                return true; 
-            } else {
-                isReturningToSafeY = true;
-            }
-        }
-        if (isReturningToSafeY) {
-            if (playerPos.getY() >= MIN_Y) {
-                isReturningToSafeY = false;
-                if (mc.options.keyJump.isDown()) {
-                    mc.options.keyJump.setDown(false);
-                }
-                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."));
-
-                return false; 
-            } else {
-                BlockPos upPos = playerPos.above(2);
-                net.minecraft.world.level.block.state.BlockState upState = level.getBlockState(upPos);
-                if (!upState.isAir() && upState.getBlock() != net.minecraft.world.level.block.Blocks.BEDROCK) {
-                    mineBlockPos(mc, level, player, upPos);
-                } else {
-                    mc.options.keyJump.setDown(true);
-                }
-                return true; 
-            }
-        }
-        return false;
-    }
+    
 
     private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
         BlockPos nearest = null;
