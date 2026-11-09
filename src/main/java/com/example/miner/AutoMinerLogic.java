@@ -313,35 +313,7 @@ public class AutoMinerLogic {
             if (!enabled) releaseKeys(mc);
         }
     }
-        private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
-        BlockPos playerPos = player.blockPosition();
-
-        if (playerPos.getY() < MIN_Y) {
-            isReturningToSafeY = true;
-            
-            BlockPos upPos = playerPos.above(2);
-            net.minecraft.world.level.block.state.BlockState upState = level.getBlockState(upPos);
-            
-            if (!upState.isAir() && upState.getBlock() != net.minecraft.world.level.block.Blocks.BEDROCK) {
-                mineBlockPos(mc, level, player, upPos);
-                mc.options.keyJump.setDown(false);
-            } else {
-                mc.options.keyJump.setDown(true);
-            }
-            return true;
-        }
-
-        if (isReturningToSafeY && playerPos.getY() >= MIN_Y) {
-            isReturningToSafeY = false;
-            if (mc.options.keyJump.isDown()) {
-                mc.options.keyJump.setDown(false);
-            }
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."));
-        }
-
-        return false;
-    }
-
+    private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
               if (pickupTicks > 0) {
             return false;
         }
