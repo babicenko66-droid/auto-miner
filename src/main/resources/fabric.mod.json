@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "autominer",
+  "version": "${version}",
+  "name": "Auto Miner",
+  "description": "Клиентский авто-майнер: копает туннели Эффективностью, руды Шёлком, следит за прочностью и обходит лаву. Вкл/выкл: .miner в чате.",
+  "authors": ["Unknown"],
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.miner.AutoMinerMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.1.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
