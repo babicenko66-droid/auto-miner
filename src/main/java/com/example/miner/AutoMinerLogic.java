@@ -49,7 +49,7 @@ public class AutoMinerLogic {
     private static final int HEIGHT_MIN = -59;
     private static final int HEIGHT_MAX = -54;
     /** \u0428\u0430\u043d\u0441 (\u0432 %) \u0441\u043c\u0435\u043d\u0438\u0442\u044c \u0432\u044b\u0441\u043e\u0442\u0443 \u043a\u0430\u0436\u0434\u044b\u0439 \u0440\u0430\u0437, \u043a\u043e\u0433\u0434\u0430 \u0431\u043e\u0442 \u0437\u0430\u043a\u0430\u043d\u0447\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u044f\u043c\u043e\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0438 \u043f\u043e\u0432\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442. */
-    private static final int HEIGHT_CHANGE_PERCENT = 40;
+    private static final int HEIGHT_CHANGE_PERCENT = 0;
 
     private static final int SAFE_DURABILITY = 10;
     private static final int LAVA_LOOKAHEAD = 6;
