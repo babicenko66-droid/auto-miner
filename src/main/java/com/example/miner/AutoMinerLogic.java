@@ -70,7 +70,7 @@ public class AutoMinerLogic {
     private static final int PICKUP_WINDOW = 60;
     private static final double PICKUP_RADIUS = 6.0d;
     /** \u0420\u0430\u0434\u0438\u0443\u0441 \u043f\u043e\u0438\u0441\u043a\u0430 \u0432\u0438\u0434\u0438\u043c\u043e\u0439 \u0440\u0443\u0434\u044b \u0438 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u0434\u0438\u0441\u0442\u0430\u043d\u0446\u0438\u044f \u0434\u043e \u043d\u0435\u0451 (\u0432 \u0431\u043b\u043e\u043a\u0430\u0445). */
-    private static final int ORE_SCAN = 4;
+    private static final int ORE_SCAN = 5;
     private static final double ORE_REACH = 5.0d;
     /** \u0415\u0441\u043b\u0438 \u0440\u044f\u0434\u043e\u043c \u043f\u043e\u044f\u0432\u0438\u043b\u0441\u044f \u0434\u0440\u0443\u0433\u043e\u0439 \u0438\u0433\u0440\u043e\u043a \u043d\u0430 \u0442\u0430\u043a\u043e\u043c \u0440\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0438 \u2014 \u0432\u044b\u043a\u043b\u044e\u0447\u0430\u0435\u043c\u0441\u044f (.miner safe). */
     private static final double PLAYER_RADIUS = 24.0d;
@@ -342,54 +342,6 @@ public class AutoMinerLogic {
                 } else {
                     mc.options.keyJump.setDown(true);
                 }
-            }
-                 
-    private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
-        BlockPos nearest = null;
-        double closestDist = Double.MAX_VALUE;
-        int vRadius = radius + 2; 
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -vRadius; y <= vRadius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    BlockPos target = startPos.offset(x, y, z);
-                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(target);
-                    if (TARGET_ORES.contains(state.getBlock())) {
-                        double dist = startPos.distSqr(target);
-                        if (dist < closestDist) {
-                            closestDist = dist;
-                            nearest = target;
-                        }
-                    }
-                }
-            }
-        }
-        return nearest;
-    }
-
-    
-      
-
-    private static void mineBlockPos(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player, BlockPos pos) {
-        net.minecraft.world.phys.Vec3 targetVec = net.minecraft.world.phys.Vec3.atCenterOf(pos);
-        net.minecraft.world.phys.Vec3 playerEye = player.getEyePosition(1.0F);
-        double dX = targetVec.x - playerEye.x;
-        double dY = targetVec.y - playerEye.y;
-        double dZ = targetVec.z - playerEye.z;
-        double dXZ = Math.sqrt(dX * dX + dZ * dZ);
-        float yaw = (float) (Math.toDegrees(Math.atan2(dZ, dX)) - 90.0D);
-        float pitch = (float) -Math.toDegrees(Math.atan2(dY, dXZ));
-        player.setYRot(yaw);
-        player.setXRot(pitch);
-
-        mc.gameMode.startDestroyBlock(pos, net.minecraft.core.Direction.UP);
-        player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-        
-        if (pos.getY() < MIN_Y && level.getBlockState(pos).getBlock() == net.minecraft.world.level.block.Blocks.BEDROCK) {
-            IGNORED_LOW_ORES.add(pos);
-        }
-    }
-
                 return true; 
             }
         }
