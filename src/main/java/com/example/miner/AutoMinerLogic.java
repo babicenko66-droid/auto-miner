@@ -343,11 +343,8 @@ public class AutoMinerLogic {
                     mc.options.keyJump.setDown(true);
                 }
             }
-        }
-        return false;
-    }
-    
-                    private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
+                 
+    private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
         BlockPos nearest = null;
         double closestDist = Double.MAX_VALUE;
         int vRadius = radius + 2; 
@@ -369,6 +366,9 @@ public class AutoMinerLogic {
         }
         return nearest;
     }
+
+    
+      
 
     private static void mineBlockPos(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player, BlockPos pos) {
         net.minecraft.world.phys.Vec3 targetVec = net.minecraft.world.phys.Vec3.atCenterOf(pos);
