@@ -342,6 +342,11 @@ public class AutoMinerLogic {
                 } else {
                     mc.options.keyJump.setDown(true);
                 }
+            }
+        }
+        return false;
+    }
+    
                     private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
         BlockPos nearest = null;
         double closestDist = Double.MAX_VALUE;
