@@ -314,6 +314,10 @@ public class AutoMinerLogic {
         }
     }
     private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
+              if (pickupTicks > 0) {
+            return false;
+        }
+
         BlockPos playerPos = player.blockPosition();
         if (playerPos.getY() < MIN_Y) {
             BlockPos diamondPos = findNearestOre(level, playerPos, ORE_SCAN);
