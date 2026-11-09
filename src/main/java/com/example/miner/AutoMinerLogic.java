@@ -1049,6 +1049,8 @@ public class AutoMinerLogic {
             }
         }
         return false;
+        }
+        
     private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
         BlockPos playerPos = player.blockPosition();
 
