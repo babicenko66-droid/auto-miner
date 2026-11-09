@@ -331,7 +331,8 @@ public class AutoMinerLogic {
                 if (mc.options.keyJump.isDown()) {
                     mc.options.keyJump.setDown(false);
                 }
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."), true);
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."));
+
                 return false; 
             } else {
                 BlockPos upPos = playerPos.above(2);
