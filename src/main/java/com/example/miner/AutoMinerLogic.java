@@ -15,7 +15,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -87,7 +87,7 @@ public class AutoMinerLogic {
         dropPhase = 0;
         releaseKeys(client);
         if (client.player != null) {
-            client.player.displayClientMessage(Component.literal(enabled ? "§aАвто-майнер включён" : "§eАвто-майнер выключен"), true);
+            client.player.sendOverlayMessage(Component.literal(enabled ? "§aАвто-майнер включён" : "§eАвто-майнер выключен"));
         }
     }
 
@@ -96,7 +96,7 @@ public class AutoMinerLogic {
         dropPhase = 0;
         releaseKeys(client);
         if (client.player != null) {
-            client.player.displayClientMessage(Component.literal(reason), false);
+            client.player.sendSystemMessage(Component.literal(reason));
         }
     }
 
@@ -109,7 +109,7 @@ public class AutoMinerLogic {
 
     private static void warn(Minecraft client, String text) {
         if (messageCooldown <= 0 && client.player != null) {
-            client.player.displayClientMessage(Component.literal(text), true);
+            client.player.sendOverlayMessage(Component.literal(text));
             messageCooldown = 40;
         }
     }
@@ -373,8 +373,8 @@ public class AutoMinerLogic {
 
     // Единственное место, завязанное на API клика по слоту (если не компилируется, править здесь)
     private static void dropStack(Minecraft client, int menuSlot) {
-        client.gameMode.handleInventoryMouseClick(
-                client.player.inventoryMenu.containerId, menuSlot, 1, ClickType.THROW, client.player);
+        client.gameMode.handleContainerInput(
+                client.player.inventoryMenu.containerId, menuSlot, 1, ContainerInput.THROW, client.player);
     }
 
     // ===== Копание и кирки =====
