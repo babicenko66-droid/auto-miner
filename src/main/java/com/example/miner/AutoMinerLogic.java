@@ -1,6 +1,8 @@
 package com.example.miner;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import net.minecraft.client.Minecraft;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -26,19 +29,28 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+/**
+ * \u0410\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440: \u043a\u043e\u043f\u0430\u0435\u0442 \u0442\u0443\u043d\u043d\u0435\u043b\u0438 \u042d\u0444\u0444\u0435\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c\u044e, \u0430\u043b\u043c\u0430\u0437\u043d\u0443\u044e \u0440\u0443\u0434\u0443 \u0431\u0435\u0440\u0451\u0442 \u0428\u0451\u043b\u043a\u043e\u043c,
+ * \u0441\u043b\u0435\u0434\u0438\u0442 \u0437\u0430 \u043f\u0440\u043e\u0447\u043d\u043e\u0441\u0442\u044c\u044e, \u0435\u0434\u043e\u0439, \u043b\u0430\u0432\u043e\u0439, \u043c\u043e\u0431\u0430\u043c\u0438, \u043f\u043e\u0434\u0431\u0438\u0440\u0430\u0435\u0442 \u0434\u0440\u043e\u043f, \u0438\u043d\u043e\u0433\u0434\u0430 \u043c\u0435\u043d\u044f\u0435\u0442 \u0432\u044b\u0441\u043e\u0442\u0443.
+ *
+ * \u041a\u043e\u043c\u0430\u043d\u0434\u044b \u0432 \u0447\u0430\u0442\u0435: .miner | .miner hud | .miner stats | .miner reset | .miner safe | .miner help
+ */
 public class AutoMinerLogic {
-    // ниже этой высоты бот никогда не опускается (там бедрок)
+
+    // ================================================================== \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438
+
+    /** \u041d\u0438\u0436\u0435 \u044d\u0442\u043e\u0439 \u0432\u044b\u0441\u043e\u0442\u044b \u0431\u043e\u0442 \u043d\u0438\u043a\u043e\u0433\u0434\u0430 \u043d\u0435 \u043e\u043f\u0443\u0441\u043a\u0430\u0435\u0442\u0441\u044f (\u0442\u0430\u043c \u0431\u0435\u0434\u0440\u043e\u043a). */
     private static final int MIN_Y = -59;
-    // диапазон высот, между которыми бот иногда переключается
+    /** \u0414\u0438\u0430\u043f\u0430\u0437\u043e\u043d \u0432\u044b\u0441\u043e\u0442, \u043c\u0435\u0436\u0434\u0443 \u043a\u043e\u0442\u043e\u0440\u044b\u043c\u0438 \u0431\u043e\u0442 \u0438\u043d\u043e\u0433\u0434\u0430 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0430\u0435\u0442\u0441\u044f. */
     private static final int HEIGHT_MIN = -59;
     private static final int HEIGHT_MAX = -54;
-    // шанс (в %) сменить высоту каждый раз, когда бот заканчивает прямой участок и поворачивает
+    /** \u0428\u0430\u043d\u0441 (\u0432 %) \u0441\u043c\u0435\u043d\u0438\u0442\u044c \u0432\u044b\u0441\u043e\u0442\u0443 \u043a\u0430\u0436\u0434\u044b\u0439 \u0440\u0430\u0437, \u043a\u043e\u0433\u0434\u0430 \u0431\u043e\u0442 \u0437\u0430\u043a\u0430\u043d\u0447\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u044f\u043c\u043e\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0438 \u043f\u043e\u0432\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442. */
     private static final int HEIGHT_CHANGE_PERCENT = 40;
+
     private static final int SAFE_DURABILITY = 10;
     private static final int LAVA_LOOKAHEAD = 6;
     private static final int LAVA_SIDE = 2;
@@ -51,13 +63,21 @@ public class AutoMinerLogic {
     private static final int JUNK_STACKS_TRIGGER = 3;
     private static final int MAX_DROPS_PER_RUN = 4;
     private static final int STUCK_TICKS = 400;
-    private static final boolean SILK_FOR_TUNNEL_IF_NO_EFFICIENCY = false;
 
-    // NEW: сколько тиков ждать, пока прицел встанет на блок, прежде чем сдаться
+    /** \u0421\u043a\u043e\u043b\u044c\u043a\u043e \u0442\u0438\u043a\u043e\u0432 \u0436\u0434\u0430\u0442\u044c, \u043f\u043e\u043a\u0430 \u043f\u0440\u0438\u0446\u0435\u043b \u0432\u0441\u0442\u0430\u043d\u0435\u0442 \u043d\u0430 \u0431\u043b\u043e\u043a, \u043f\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043c \u0441\u0434\u0430\u0442\u044c\u0441\u044f. */
     private static final int AIM_TIMEOUT = 30;
-    // NEW: окно (в тиках) после добытой руды, когда бот собирает выпавшие предметы
+    /** \u041e\u043a\u043d\u043e (\u0432 \u0442\u0438\u043a\u0430\u0445) \u043d\u0430 \u0441\u0431\u043e\u0440 \u0432\u044b\u043f\u0430\u0432\u0448\u0438\u0445 \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432. */
     private static final int PICKUP_WINDOW = 60;
     private static final double PICKUP_RADIUS = 6.0d;
+    /** \u0420\u0430\u0434\u0438\u0443\u0441 \u043f\u043e\u0438\u0441\u043a\u0430 \u0432\u0438\u0434\u0438\u043c\u043e\u0439 \u0440\u0443\u0434\u044b \u0438 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u0430\u044f \u0434\u0438\u0441\u0442\u0430\u043d\u0446\u0438\u044f \u0434\u043e \u043d\u0435\u0451 (\u0432 \u0431\u043b\u043e\u043a\u0430\u0445). */
+    private static final int ORE_SCAN = 3;
+    private static final double ORE_REACH = 4.0d;
+    /** \u0415\u0441\u043b\u0438 \u0440\u044f\u0434\u043e\u043c \u043f\u043e\u044f\u0432\u0438\u043b\u0441\u044f \u0434\u0440\u0443\u0433\u043e\u0439 \u0438\u0433\u0440\u043e\u043a \u043d\u0430 \u0442\u0430\u043a\u043e\u043c \u0440\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0438 \u2014 \u0432\u044b\u043a\u043b\u044e\u0447\u0430\u0435\u043c\u0441\u044f (.miner safe). */
+    private static final double PLAYER_RADIUS = 24.0d;
+    /** \u0421\u043a\u043e\u043b\u044c\u043a\u043e \u0442\u0438\u043a\u043e\u0432 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044c \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0437\u0430\u0431\u0438\u0442 \u0431\u0435\u0437 \u043c\u0443\u0441\u043e\u0440\u0430, \u043f\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043c \u0431\u043e\u0442 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0441\u044f. */
+    private static final int FULL_INVENTORY_TICKS = 100;
+    /** \u0421\u043a\u043e\u043b\u044c\u043a\u043e \u0442\u0438\u043a\u043e\u0432 \u0431\u0435\u0437 \u043d\u0443\u0436\u043d\u043e\u0439 \u043a\u0438\u0440\u043a\u0438, \u043f\u0440\u0435\u0436\u0434\u0435 \u0447\u0435\u043c \u0431\u043e\u0442 \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0441\u044f. */
+    private static final int NO_TOOL_TICKS = 100;
 
     private static final Set<Block> TARGET_ORES = Set.of(Blocks.DIAMOND_ORE, Blocks.DEEPSLATE_DIAMOND_ORE);
 
@@ -74,10 +94,13 @@ public class AutoMinerLogic {
 
     private static final RandomSource RANDOM = RandomSource.create();
 
-    // руды, до которых прицел так и не дотянулся (закрыты другим блоком) — пропускаем
-    private static final Set<BlockPos> IGNORED = new HashSet<>();
+    // ================================================================== \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435
 
     private static boolean enabled = false;
+    private static boolean hudVisible = true;
+    private static boolean safeMode = true;
+    private static LocalPlayer owner = null;
+
     private static Direction currentDirection = null;
     private static BlockPos lastPos = null;
     private static BlockPos stuckPos = null;
@@ -97,10 +120,67 @@ public class AutoMinerLogic {
     private static int walkStall = 0;
     private static int centerTicks = 0;
 
-    // ------------------------------------------------------------------ управление
+    private static int fullTicks = 0;
+    private static int noToolTicks = 0;
+
+    /** \u0420\u0443\u0434\u044b, \u0434\u043e \u043a\u043e\u0442\u043e\u0440\u044b\u0445 \u043f\u0440\u0438\u0446\u0435\u043b \u043d\u0435 \u0434\u043e\u0442\u044f\u043d\u0443\u043b\u0441\u044f (\u0437\u0430\u043a\u0440\u044b\u0442\u044b \u0434\u0440\u0443\u0433\u0438\u043c \u0431\u043b\u043e\u043a\u043e\u043c). */
+    private static final Set<BlockPos> IGNORED = new HashSet<>();
+    /** \u041f\u0440\u0435\u0434\u043c\u0435\u0442\u044b, \u0434\u043e \u043a\u043e\u0442\u043e\u0440\u044b\u0445 \u043d\u0435 \u043f\u043e\u043b\u0443\u0447\u0438\u043b\u043e\u0441\u044c \u0434\u043e\u0439\u0442\u0438. */
+    private static final Set<Integer> GIVE_UP = new HashSet<>();
+
+    // ---- \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 (\u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u0432 \u043f\u0430\u043d\u0435\u043b\u0438)
+    private static int oresMined = 0;
+    private static int blocksDug = 0;
+    private static long runTicks = 0;
+    private static String status = "\u043e\u0436\u0438\u0434\u0430\u043d\u0438\u0435";
+
+    // ================================================================== \u043a\u043e\u043c\u0430\u043d\u0434\u044b / \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435
+
+    public static void command(Minecraft mc, String arg) {
+        switch (arg.toLowerCase()) {
+            case "" -> toggle(mc);
+            case "hud" -> {
+                hudVisible = !hudVisible;
+                chat(mc, hudVisible ? "\u00a7a\u041f\u0430\u043d\u0435\u043b\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430" : "\u00a7e\u041f\u0430\u043d\u0435\u043b\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430");
+            }
+            case "stats" -> {
+                for (String line : hudLines(mc)) chat(mc, line);
+            }
+            case "reset" -> {
+                oresMined = 0;
+                blocksDug = 0;
+                runTicks = 0;
+                chat(mc, "\u00a7e\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u0441\u0431\u0440\u043e\u0448\u0435\u043d\u0430");
+            }
+            case "safe" -> {
+                safeMode = !safeMode;
+                chat(mc, safeMode
+                        ? "\u00a7a\u0417\u0430\u0449\u0438\u0442\u0430 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430: \u0431\u043e\u0442 \u0432\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u0441\u044f, \u0435\u0441\u043b\u0438 \u0440\u044f\u0434\u043e\u043c \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f \u0434\u0440\u0443\u0433\u043e\u0439 \u0438\u0433\u0440\u043e\u043a"
+                        : "\u00a7e\u0417\u0430\u0449\u0438\u0442\u0430 \u043e\u0442 \u0438\u0433\u0440\u043e\u043a\u043e\u0432 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430");
+            }
+            default -> {
+                chat(mc, "\u00a7b.miner \u00a77\u2014 \u0432\u043a\u043b/\u0432\u044b\u043a\u043b");
+                chat(mc, "\u00a7b.miner hud \u00a77\u2014 \u043f\u0430\u043d\u0435\u043b\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438");
+                chat(mc, "\u00a7b.miner stats \u00a77\u2014 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u0432 \u0447\u0430\u0442");
+                chat(mc, "\u00a7b.miner reset \u00a77\u2014 \u0441\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0443");
+                chat(mc, "\u00a7b.miner safe \u00a77\u2014 \u0432\u044b\u043a\u043b\u044e\u0447\u0430\u0442\u044c\u0441\u044f, \u0435\u0441\u043b\u0438 \u0440\u044f\u0434\u043e\u043c \u0438\u0433\u0440\u043e\u043a");
+            }
+        }
+    }
 
     public static void toggle(Minecraft mc) {
         enabled = !enabled;
+        resetRun();
+        releaseKeys(mc);
+        status = enabled ? "\u0441\u0442\u0430\u0440\u0442" : "\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d";
+        if (mc.player != null) {
+            mc.player.sendOverlayMessage(Component.literal(enabled
+                    ? "\u00a7a\u0410\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u043a\u043b\u044e\u0447\u0451\u043d"
+                    : "\u00a7e\u0410\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d"));
+        }
+    }
+
+    private static void resetRun() {
         currentDirection = null;
         lastPos = null;
         stuckPos = null;
@@ -111,17 +191,14 @@ public class AutoMinerLogic {
         aimMiss = 0;
         oreTarget = null;
         pickupTicks = 0;
-        IGNORED.clear();
         targetY = HEIGHT_MIN;
         walkPos = null;
         walkStall = 0;
         centerTicks = 0;
-        releaseKeys(mc);
-        if (mc.player != null) {
-            mc.player.sendOverlayMessage(Component.literal(enabled
-                    ? "§aАвто-майнер включён"
-                    : "§eАвто-майнер выключен"));
-        }
+        fullTicks = 0;
+        noToolTicks = 0;
+        IGNORED.clear();
+        GIVE_UP.clear();
     }
 
     private static void disable(Minecraft mc, String reason) {
@@ -129,6 +206,7 @@ public class AutoMinerLogic {
         dropPhase = 0;
         pickupTicks = 0;
         mineTarget = null;
+        status = "\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d";
         releaseKeys(mc);
         if (mc.player != null) {
             mc.player.sendSystemMessage(Component.literal(reason));
@@ -151,16 +229,93 @@ public class AutoMinerLogic {
         }
     }
 
-    // ------------------------------------------------------------------ главный тик
+    private static void chat(Minecraft mc, String text) {
+        if (mc.player != null) {
+            mc.player.sendSystemMessage(Component.literal(text));
+        }
+    }
+
+    // ================================================================== \u043f\u0430\u043d\u0435\u043b\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0438
+
+    public static boolean isHudVisible() {
+        return hudVisible;
+    }
+
+    public static List<String> hudLines(Minecraft mc) {
+        List<String> lines = new ArrayList<>();
+        lines.add("\u00a7b\u00a7lAuto-Miner " + (enabled ? "\u00a7a[\u0412\u041a\u041b]" : "\u00a7c[\u0412\u042b\u041a\u041b]"));
+        lines.add("\u00a77\u0410\u043b\u043c\u0430\u0437\u043d\u0430\u044f \u0440\u0443\u0434\u0430: \u00a7b\u00a7l" + oresMined + "\u00a7r \u00a77(\u0432 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u0435: \u00a7f" + countOreInInventory(mc) + "\u00a77)");
+        lines.add("\u00a77\u0411\u043b\u043e\u043a\u043e\u0432 \u0432\u044b\u043a\u043e\u043f\u0430\u043d\u043e: \u00a7f" + blocksDug);
+
+        long sec = runTicks / 20;
+        String time = sec >= 3600
+                ? String.format("%d:%02d:%02d", sec / 3600, (sec / 60) % 60, sec % 60)
+                : String.format("%d:%02d", sec / 60, sec % 60);
+        if (sec >= 60 && oresMined > 0) {
+            time += " \u00a77(\u2248" + (oresMined * 3600L / sec) + " \u0440\u0443\u0434\u044b/\u0447\u0430\u0441)";
+        }
+        lines.add("\u00a77\u0412\u0440\u0435\u043c\u044f \u0440\u0430\u0431\u043e\u0442\u044b: \u00a7f" + time);
+
+        int y = mc.player != null ? mc.player.blockPosition().getY() : 0;
+        lines.add("\u00a77\u0412\u044b\u0441\u043e\u0442\u0430: \u00a7f" + y + " \u00a77(\u0446\u0435\u043b\u044c \u00a7f" + targetY + "\u00a77) | \u00a7f" + directionName());
+        lines.add("\u00a77\u0421\u0442\u0430\u0442\u0443\u0441: \u00a7f" + status);
+        return lines;
+    }
+
+    private static String directionName() {
+        if (currentDirection == Direction.NORTH) return "\u0441\u0435\u0432\u0435\u0440";
+        if (currentDirection == Direction.SOUTH) return "\u044e\u0433";
+        if (currentDirection == Direction.EAST) return "\u0432\u043e\u0441\u0442\u043e\u043a";
+        if (currentDirection == Direction.WEST) return "\u0437\u0430\u043f\u0430\u0434";
+        return "-";
+    }
+
+    private static int countOreInInventory(Minecraft mc) {
+        if (mc.player == null) return 0;
+        Inventory inv = mc.player.getInventory();
+        int total = 0;
+        for (int i = 0; i < 36; i++) {
+            ItemStack s = inv.getItem(i);
+            Item it = s.getItem();
+            if (it == Blocks.DIAMOND_ORE.asItem() || it == Blocks.DEEPSLATE_DIAMOND_ORE.asItem()) {
+                total += s.getCount();
+            }
+        }
+        return total;
+    }
+
+    // ================================================================== \u0433\u043b\u0430\u0432\u043d\u044b\u0439 \u0442\u0438\u043a
 
     public static void tick(Minecraft mc) {
+        // \u0441\u043c\u0435\u043d\u0430 \u043c\u0438\u0440\u0430 / \u0440\u0435\u0441\u043f\u0430\u0443\u043d: \u043d\u043e\u0432\u044b\u0439 \u043e\u0431\u044a\u0435\u043a\u0442 \u0438\u0433\u0440\u043e\u043a\u0430 \u2014 \u0431\u043e\u0442 \u043d\u0435 \u0434\u043e\u043b\u0436\u0435\u043d \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u0441\u0430\u043c
+        if (mc.player != owner) {
+            owner = mc.player;
+            if (enabled) {
+                enabled = false;
+                resetRun();
+                status = "\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d";
+            }
+        }
         if (!enabled) return;
         if (mc.player == null || mc.level == null || mc.gameMode == null) return;
 
+        try {
+            run(mc);
+        } catch (RuntimeException e) {
+            // \u043e\u0448\u0438\u0431\u043a\u0430 \u0432 \u043b\u043e\u0433\u0438\u043a\u0435 \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u0440\u043e\u043d\u044f\u0442\u044c \u0438\u0433\u0440\u0443
+            e.printStackTrace();
+            disable(mc, "\u00a7c\u041e\u0448\u0438\u0431\u043a\u0430 \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440\u0430: " + e);
+        } finally {
+            if (!enabled) releaseKeys(mc);
+        }
+    }
+
+    private static void run(Minecraft mc) {
         releaseKeys(mc);
         if (messageCooldown > 0) messageCooldown--;
         if (junkCooldown > 0) junkCooldown--;
         if (mc.screen != null) return;
+        runTicks++;
 
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
@@ -169,22 +324,31 @@ public class AutoMinerLogic {
         if (currentDirection == null) currentDirection = player.getDirection();
 
         if (player.getHealth() < MIN_HEALTH) {
-            disable(mc, "§cМало здоровья, авто-майнер выключен");
+            disable(mc, "\u00a7c\u041c\u0430\u043b\u043e \u0437\u0434\u043e\u0440\u043e\u0432\u044c\u044f, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             return;
         }
         if (player.isOnFire()) {
-            disable(mc, "§cВы горите (лава/огонь), авто-майнер выключен");
+            disable(mc, "\u00a7c\u0412\u044b \u0433\u043e\u0440\u0438\u0442\u0435 (\u043b\u0430\u0432\u0430/\u043e\u0433\u043e\u043d\u044c), \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             return;
         }
 
-        // --- мобы
+        // --- \u0434\u0440\u0443\u0433\u0438\u0435 \u0438\u0433\u0440\u043e\u043a\u0438 \u0440\u044f\u0434\u043e\u043c
+        if (safeMode && runTicks % 10 == 0) {
+            for (Player other : level.getEntitiesOfClass(Player.class, player.getBoundingBox().inflate(PLAYER_RADIUS))) {
+                if (other == player || !other.isAlive()) continue;
+                disable(mc, "\u00a7c\u0420\u044f\u0434\u043e\u043c \u0438\u0433\u0440\u043e\u043a " + other.getName().getString() + ", \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
+                return;
+            }
+        }
+
+        // --- \u043c\u043e\u0431\u044b
         Monster nearest = null;
         double nearestDist = ENGAGE_RANGE * ENGAGE_RANGE;
         boolean monsterNear = false;
         for (Monster m : level.getEntitiesOfClass(Monster.class, player.getBoundingBox().inflate(32.0d))) {
             if (!m.isAlive()) continue;
             if (m.getType() == EntityType.WARDEN) {
-                disable(mc, "§4Рядом Варден! Авто-майнер выключен, уходите тихо");
+                disable(mc, "\u00a74\u0420\u044f\u0434\u043e\u043c \u0412\u0430\u0440\u0434\u0435\u043d! \u0410\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d, \u0443\u0445\u043e\u0434\u0438\u0442\u0435 \u0442\u0438\u0445\u043e");
                 return;
             }
             double d = m.distanceToSqr(player);
@@ -196,31 +360,36 @@ public class AutoMinerLogic {
             }
         }
         if (player.hurtTime > 0 && !monsterNear) {
-            disable(mc, "§cПолучен урон от неизвестного источника, авто-майнер выключен");
+            disable(mc, "\u00a7c\u041f\u043e\u043b\u0443\u0447\u0435\u043d \u0443\u0440\u043e\u043d \u043e\u0442 \u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e\u0433\u043e \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0430, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             return;
         }
         if (nearest != null) {
             dropPhase = 0;
+            status = "\u0431\u043e\u0439";
             fight(mc, nearest);
             return;
         }
 
-        if (handleEating(mc)) return;
-        if (handleJunk(mc)) return;
-
-        // NEW: руда сломана -> включаем окно сбора дропа
-        if (oreTarget != null && level.getBlockState(oreTarget).isAir()) {
-            pickupTicks = PICKUP_WINDOW;
-            oreTarget = null;
+        // --- \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430: \u0431\u043b\u043e\u043a/\u0440\u0443\u0434\u0430 \u0441\u043b\u043e\u043c\u0430\u043d\u044b
+        if (mineTarget != null && level.getBlockState(mineTarget).isAir()) {
+            blocksDug++;
             mineTarget = null;
         }
+        if (oreTarget != null && level.getBlockState(oreTarget).isAir()) {
+            oresMined++;
+            pickupTicks = PICKUP_WINDOW;
+            oreTarget = null;
+        }
+
+        if (handleEating(mc)) return;
+        if (handleJunk(mc)) return;
         if (handlePickup(mc)) return;
 
-        // --- направление взгляда по умолчанию
+        // --- \u043d\u0430\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0432\u0437\u0433\u043b\u044f\u0434\u0430 \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e
         player.setYRot(currentDirection.toYRot());
         player.setXRot(0.0f);
 
-        // --- детектор застревания / длины прямой
+        // --- \u043f\u0440\u044f\u043c\u043e\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a / \u0437\u0430\u0441\u0442\u0440\u0435\u0432\u0430\u043d\u0438\u0435
         if (lastPos != null && lastPos.getY() == pos.getY()
                 && (lastPos.getX() != pos.getX() || lastPos.getZ() != pos.getZ())) {
             blocksDugInStraightLine++;
@@ -234,23 +403,18 @@ public class AutoMinerLogic {
             stuckTicks = 0;
         }
         if (stuckTicks > STUCK_TICKS) {
-            disable(mc, "§cБот застрял на одном месте, авто-майнер выключен");
+            disable(mc, "\u00a7c\u0411\u043e\u0442 \u0437\u0430\u0441\u0442\u0440\u044f\u043b \u043d\u0430 \u043e\u0434\u043d\u043e\u043c \u043c\u0435\u0441\u0442\u0435, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             return;
         }
 
-        // --- по высоте
+        // --- \u043f\u043e \u0432\u044b\u0441\u043e\u0442\u0435
         int y = pos.getY();
         if (y < MIN_Y) {
-            disable(mc, "§cВы ниже рабочей высоты Y=-59, авто-майнер выключен");
+            disable(mc, "\u00a7c\u0412\u044b \u043d\u0438\u0436\u0435 \u0440\u0430\u0431\u043e\u0447\u0435\u0439 \u0432\u044b\u0441\u043e\u0442\u044b Y=-59, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             return;
         }
         if (y > targetY) {
-            BlockPos below = pos.below();
-            if (hasLavaAround(level, below) || hasLavaAround(level, below.below())) {
-                disable(mc, "§cЛава внизу, авто-майнер выключен");
-                return;
-            }
-            tryMine(mc, below);
+            digDown(mc, pos);
             return;
         }
         if (y < targetY) {
@@ -258,20 +422,28 @@ public class AutoMinerLogic {
             return;
         }
 
-        // --- прокладываем туннель на высоте targetY
+        tunnel(mc, pos);
+    }
+
+    // ================================================================== \u0442\u0443\u043d\u043d\u0435\u043b\u044c
+
+    private static void tunnel(Minecraft mc, BlockPos pos) {
+        ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
         BlockPos front = pos.relative(currentDirection);
         BlockPos head = front.above();
 
         if (!isPathSafe(level, pos, currentDirection)) {
             if (!turnToSafeDirection(level, pos)) {
-                disable(mc, "§cОпасность со всех сторон (лава/гравий/бедрок), авто-майнер выключен");
+                disable(mc, "\u00a7c\u041e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c \u0441\u043e \u0432\u0441\u0435\u0445 \u0441\u0442\u043e\u0440\u043e\u043d (\u043b\u0430\u0432\u0430/\u0433\u0440\u0430\u0432\u0438\u0439/\u0431\u0435\u0434\u0440\u043e\u043a), \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             }
             return;
         }
 
-        // руда в приоритете: сначала добываем и подбираем, и только потом поворачиваем
-        BlockPos ore = findVisibleOre(level, pos);
+        // \u0440\u0443\u0434\u0430 \u0432 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u0435: \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u0434\u043e\u0431\u044b\u0432\u0430\u0435\u043c \u0438 \u043f\u043e\u0434\u0431\u0438\u0440\u0430\u0435\u043c, \u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u043e\u0442\u043e\u043c \u043f\u043e\u0432\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u043c
+        BlockPos ore = findVisibleOre(level, player, pos);
         if (ore != null && !hasLavaAround(level, ore) && tryMine(mc, ore)) {
+            status = "\u043a\u043e\u043f\u0430\u044e \u0430\u043b\u043c\u0430\u0437\u043d\u0443\u044e \u0440\u0443\u0434\u0443";
             return;
         }
 
@@ -287,20 +459,22 @@ public class AutoMinerLogic {
 
         if (headState.is(Blocks.BEDROCK) || frontState.is(Blocks.BEDROCK)) {
             if (!turnToSafeDirection(level, pos)) {
-                disable(mc, "§cТупик, авто-майнер выключен");
+                disable(mc, "\u00a7c\u0422\u0443\u043f\u0438\u043a, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
             }
             return;
         }
 
         if (isMineable(headState)) {
+            status = "\u043a\u043e\u043f\u0430\u044e \u0442\u0443\u043d\u043d\u0435\u043b\u044c";
             if (!tryMine(mc, head) && isTargetOre(headState)) turnToSafeDirection(level, pos);
         } else if (isMineable(frontState)) {
+            status = "\u043a\u043e\u043f\u0430\u044e \u0442\u0443\u043d\u043d\u0435\u043b\u044c";
             if (!tryMine(mc, front) && isTargetOre(frontState)) turnToSafeDirection(level, pos);
         } else {
             BlockState floor = level.getBlockState(front.below());
             if (floor.isAir() || !floor.getFluidState().isEmpty()) {
                 if (!turnToSafeDirection(level, pos)) {
-                    disable(mc, "§cТупик, авто-майнер выключен");
+                    disable(mc, "\u00a7c\u0422\u0443\u043f\u0438\u043a, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
                 }
                 return;
             }
@@ -308,17 +482,9 @@ public class AutoMinerLogic {
         }
     }
 
-    // ------------------------------------------------------------------ ходьба (ИСПРАВЛЕНО)
+    // ================================================================== \u0445\u043e\u0434\u044c\u0431\u0430
 
-    /**
-     * Идём вперёд, но сначала встаём по центру клетки.
-     *
-     * После поворота бот стоит у края клетки, и его хитбокс (0.6) цепляется за
-     * нетронутый блок сбоку — он упирается в стену и через 20 сек выключается как «застрявший».
-     */
-    private static void walkForward(Minecraft mc, BlockPos pos, BlockPos front) {
-        LocalPlayer player = mc.player;
-
+    private static void trackPos(BlockPos pos) {
         if (!pos.equals(walkPos)) {
             walkPos = pos;
             walkStall = 0;
@@ -326,28 +492,44 @@ public class AutoMinerLogic {
         } else {
             walkStall++;
         }
+    }
 
-        // боковое смещение относительно направления движения
+    /**
+     * \u0412\u0441\u0442\u0430\u0451\u043c \u043f\u043e \u0446\u0435\u043d\u0442\u0440\u0443 \u043a\u043b\u0435\u0442\u043a\u0438, \u0435\u0441\u043b\u0438 \u0441\u0442\u043e\u0438\u043c \u0443 \u043a\u0440\u0430\u044f (\u0445\u0438\u0442\u0431\u043e\u043a\u0441 0.6 \u0446\u0435\u043f\u043b\u044f\u0435\u0442\u0441\u044f \u0437\u0430 \u0431\u043b\u043e\u043a\u0438 \u0441\u0431\u043e\u043a\u0443/\u043d\u0430\u0434 \u0433\u043e\u043b\u043e\u0432\u043e\u0439).
+     * @return true, \u0435\u0441\u043b\u0438 \u0432 \u044d\u0442\u043e\u043c \u0442\u0438\u043a\u0435 \u0437\u0430\u043d\u0438\u043c\u0430\u043b\u0438\u0441\u044c \u0446\u0435\u043d\u0442\u0440\u043e\u0432\u043a\u043e\u0439
+     */
+    private static boolean centerInTile(Minecraft mc, BlockPos pos, boolean bothAxes) {
+        LocalPlayer player = mc.player;
         double cx = pos.getX() + 0.5d;
         double cz = pos.getZ() + 0.5d;
         boolean alongX = currentDirection == Direction.EAST || currentDirection == Direction.WEST;
         double lateral = alongX ? Math.abs(player.getZ() - cz) : Math.abs(player.getX() - cx);
+        double forward = alongX ? Math.abs(player.getX() - cx) : Math.abs(player.getZ() - cz);
 
-        if (lateral > 0.15d && centerTicks < 20) {
-            centerTicks++;
-            double dx = cx - player.getX();
-            double dz = cz - player.getZ();
-            if (dx * dx + dz * dz > 0.01d) {
-                player.setYRot((float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0d));
-                player.setXRot(0.0f);
-                mc.options.keyUp.setDown(true);
-            }
-            return;
+        boolean off = lateral > 0.15d || (bothAxes && forward > 0.15d);
+        if (!off || centerTicks >= 20) return false;
+
+        centerTicks++;
+        status = "\u0446\u0435\u043d\u0442\u0440\u0443\u044e\u0441\u044c";
+        double dx = cx - player.getX();
+        double dz = cz - player.getZ();
+        if (dx * dx + dz * dz > 0.01d) {
+            player.setYRot((float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0d));
+            player.setXRot(0.0f);
+            mc.options.keyUp.setDown(true);
         }
+        return true;
+    }
 
-        // всё равно не идём — значит что-то сбоку держит, выламываем боковые блоки
+    private static void walkForward(Minecraft mc, BlockPos pos, BlockPos front) {
+        trackPos(pos);
+        if (centerInTile(mc, pos, false)) return;
+
+        // \u0432\u0441\u0451 \u0440\u0430\u0432\u043d\u043e \u043d\u0435 \u0438\u0434\u0451\u043c \u2014 \u0437\u043d\u0430\u0447\u0438\u0442 \u0447\u0442\u043e-\u0442\u043e \u0441\u0431\u043e\u043a\u0443 \u0434\u0435\u0440\u0436\u0438\u0442, \u0432\u044b\u043b\u0430\u043c\u044b\u0432\u0430\u0435\u043c \u0431\u043e\u043a\u043e\u0432\u044b\u0435 \u0431\u043b\u043e\u043a\u0438
         if (walkStall >= 25 && clearSides(mc, front)) return;
+        if (!enabled) return;
 
+        status = "\u0438\u0434\u0443";
         mc.options.keyUp.setDown(true);
     }
 
@@ -368,7 +550,7 @@ public class AutoMinerLogic {
         return false;
     }
 
-    // ------------------------------------------------------------------ смена высоты (НОВОЕ)
+    // ================================================================== \u0441\u043c\u0435\u043d\u0430 \u0432\u044b\u0441\u043e\u0442\u044b
 
     private static void maybeChangeHeight(Minecraft mc) {
         if (RANDOM.nextInt(100) >= HEIGHT_CHANGE_PERCENT) return;
@@ -376,41 +558,69 @@ public class AutoMinerLogic {
         if (n == targetY) return;
         targetY = n;
         if (mc.player != null) {
-            mc.player.sendOverlayMessage(Component.literal("§bМеняю высоту: Y=" + n));
+            mc.player.sendOverlayMessage(Component.literal("\u00a7b\u041c\u0435\u043d\u044f\u044e \u0432\u044b\u0441\u043e\u0442\u0443: Y=" + n));
         }
     }
 
-    /** Подъём лесенкой 1:1: чистим потолок, клетку впереди-выше и прыгаем. */
+    /** \u0421\u043f\u0443\u0441\u043a: \u043a\u043e\u043f\u0430\u0435\u043c \u0448\u0430\u0445\u0442\u0443 \u043f\u043e\u0434 \u0441\u043e\u0431\u043e\u0439. */
+    private static void digDown(Minecraft mc, BlockPos pos) {
+        ClientLevel level = mc.level;
+        BlockPos below = pos.below();
+        if (hasLavaAround(level, below) || hasLavaAround(level, below.below())) {
+            // \u043b\u0430\u0432\u0430 \u0432\u043d\u0438\u0437\u0443 \u2014 \u043e\u0441\u0442\u0430\u0451\u043c\u0441\u044f \u043d\u0430 \u044d\u0442\u043e\u0439 \u0432\u044b\u0441\u043e\u0442\u0435, \u0435\u0441\u043b\u0438 \u043e\u043d\u0430 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u0430
+            if (pos.getY() >= MIN_Y && pos.getY() <= HEIGHT_MAX) {
+                targetY = pos.getY();
+                return;
+            }
+            disable(mc, "\u00a7c\u041b\u0430\u0432\u0430 \u0432\u043d\u0438\u0437\u0443, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
+            return;
+        }
+        status = "\u043a\u043e\u043f\u0430\u044e \u0432\u043d\u0438\u0437";
+        tryMine(mc, below);
+    }
+
+    /**
+     * \u041f\u043e\u0434\u044a\u0451\u043c \u043b\u0435\u0441\u0435\u043d\u043a\u043e\u0439 1:1. \u0427\u0438\u0441\u0442\u0438\u043c 3 \u043a\u043b\u0435\u0442\u043a\u0438 \u043d\u0430\u0434 \u0441\u043e\u0431\u043e\u0439 \u0438 3 \u043a\u043b\u0435\u0442\u043a\u0438 \u0432\u043f\u0435\u0440\u0435\u0434\u0438-\u0432\u044b\u0448\u0435, \u0432\u0441\u0442\u0430\u0451\u043c \u043f\u043e \u0446\u0435\u043d\u0442\u0440\u0443
+     * \u0438 \u0442\u043e\u043b\u044c\u043a\u043e \u043f\u043e\u0442\u043e\u043c \u043f\u0440\u044b\u0433\u0430\u0435\u043c \u2014 \u0438\u043d\u0430\u0447\u0435 \u0445\u0438\u0442\u0431\u043e\u043a\u0441 \u0446\u0435\u043f\u043b\u044f\u0435\u0442\u0441\u044f \u0433\u043e\u043b\u043e\u0432\u043e\u0439 \u0437\u0430 \u043f\u043e\u0442\u043e\u043b\u043e\u043a.
+     */
     private static void climb(Minecraft mc, BlockPos pos) {
         ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
         BlockPos front = pos.relative(currentDirection);
-        BlockPos step = front.above();
-        BlockPos step2 = front.above(2);
-        BlockPos roof = pos.above(2);
+        BlockPos[] clear = {
+                pos.above(2), pos.above(3),
+                front.above(2), front.above(3),
+                front.above()
+        };
 
-        // небезопасно подниматься (лава / сыпучий блок над головой) — остаёмся на этой высоте
-        if (!isPathSafe(level, pos, currentDirection)
-                || hasLavaAround(level, roof) || hasLavaAround(level, step) || hasLavaAround(level, step2)
-                || level.getBlockState(roof.above()).getBlock() instanceof FallingBlock
-                || level.getBlockState(roof).getBlock() instanceof FallingBlock
-                || level.getBlockState(step2).getBlock() instanceof FallingBlock
-                || level.getBlockState(step2.above()).getBlock() instanceof FallingBlock) {
+        // \u043d\u0435\u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e \u043f\u043e\u0434\u043d\u0438\u043c\u0430\u0442\u044c\u0441\u044f (\u043b\u0430\u0432\u0430 / \u0441\u044b\u043f\u0443\u0447\u0438\u0439 \u0431\u043b\u043e\u043a \u043d\u0430\u0434 \u0433\u043e\u043b\u043e\u0432\u043e\u0439) \u2014 \u043e\u0441\u0442\u0430\u0451\u043c\u0441\u044f \u043d\u0430 \u044d\u0442\u043e\u0439 \u0432\u044b\u0441\u043e\u0442\u0435
+        boolean unsafe = !isPathSafe(level, pos, currentDirection);
+        for (BlockPos c : clear) {
+            if (hasLavaAround(level, c)
+                    || level.getBlockState(c).getBlock() instanceof FallingBlock
+                    || level.getBlockState(c.above()).getBlock() instanceof FallingBlock) {
+                unsafe = true;
+            }
+        }
+        if (unsafe) {
             targetY = pos.getY();
             return;
         }
 
-        BlockPos ore = findVisibleOre(level, pos);
+        BlockPos ore = findVisibleOre(level, player, pos);
         if (ore != null && !hasLavaAround(level, ore) && tryMine(mc, ore)) {
+            status = "\u043a\u043e\u043f\u0430\u044e \u0430\u043b\u043c\u0430\u0437\u043d\u0443\u044e \u0440\u0443\u0434\u0443";
             return;
         }
 
-        for (BlockPos c : new BlockPos[] {roof, step2, step}) {
+        for (BlockPos c : clear) {
             BlockState s = level.getBlockState(c);
             if (s.is(Blocks.BEDROCK)) {
                 targetY = pos.getY();
                 return;
             }
             if (isMineable(s)) {
+                status = "\u043a\u043e\u043f\u0430\u044e \u043b\u0435\u0441\u0435\u043d\u043a\u0443";
                 if (!tryMine(mc, c) && isTargetOre(s)) {
                     targetY = pos.getY();
                 }
@@ -418,12 +628,15 @@ public class AutoMinerLogic {
             }
         }
 
-        // всё свободно — шаг вперёд и прыжок
+        trackPos(pos);
+        if (centerInTile(mc, pos, true)) return;
+
+        status = "\u043f\u043e\u0434\u043d\u0438\u043c\u0430\u044e\u0441\u044c";
         mc.options.keyUp.setDown(true);
         mc.options.keyJump.setDown(true);
     }
 
-    // ------------------------------------------------------------------ бой
+    // ================================================================== \u0431\u043e\u0439
 
     private static void fight(Minecraft mc, Monster target) {
         LocalPlayer player = mc.player;
@@ -448,11 +661,12 @@ public class AutoMinerLogic {
         }
     }
 
-    // ------------------------------------------------------------------ еда / мусор
+    // ================================================================== \u0435\u0434\u0430 / \u043c\u0443\u0441\u043e\u0440
 
     private static boolean handleEating(Minecraft mc) {
         LocalPlayer player = mc.player;
         if (player.isUsingItem()) {
+            status = "\u0435\u043c";
             mc.options.keyUse.setDown(true);
             return true;
         }
@@ -462,10 +676,11 @@ public class AutoMinerLogic {
                 if (FOOD.contains(inv.getItem(i).getItem())) {
                     inv.setSelectedSlot(i);
                     mc.options.keyUse.setDown(true);
+                    status = "\u0435\u043c";
                     return true;
                 }
             }
-            warn(mc, "§cНет еды в хотбаре");
+            warn(mc, "\u00a7c\u041d\u0435\u0442 \u0435\u0434\u044b \u0432 \u0445\u043e\u0442\u0431\u0430\u0440\u0435");
         }
         return false;
     }
@@ -473,6 +688,7 @@ public class AutoMinerLogic {
     private static boolean handleJunk(Minecraft mc) {
         LocalPlayer player = mc.player;
         if (dropPhase > 0) {
+            status = "\u0432\u044b\u0431\u0440\u0430\u0441\u044b\u0432\u0430\u044e \u043c\u0443\u0441\u043e\u0440";
             player.setYRot(currentDirection.getOpposite().toYRot());
             player.setXRot(0.0f);
             dropPhase++;
@@ -495,7 +711,13 @@ public class AutoMinerLogic {
             }
         }
         if (full && junk == 0) {
-            warn(mc, "§cИнвентарь полон");
+            warn(mc, "\u00a7c\u0418\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044c \u043f\u043e\u043b\u043e\u043d");
+            if (++fullTicks > FULL_INVENTORY_TICKS) {
+                disable(mc, "\u00a7c\u0418\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044c \u043f\u043e\u043b\u043e\u043d, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
+                return true;
+            }
+        } else {
+            fullTicks = 0;
         }
         if (junkCooldown <= 0 && junk >= JUNK_STACKS_TRIGGER) {
             dropPhase = 1;
@@ -521,17 +743,13 @@ public class AutoMinerLogic {
                 ContainerInput.THROW, mc.player);
     }
 
-    // ------------------------------------------------------------------ добыча (ИСПРАВЛЕНО)
+    // ================================================================== \u0434\u043e\u0431\u044b\u0447\u0430
 
     /**
-     * Ломает блок, удерживая настоящую кнопку атаки и наводя на блок прицел.
+     * \u041b\u043e\u043c\u0430\u0435\u0442 \u0431\u043b\u043e\u043a, \u0443\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u044f \u043d\u0430\u0441\u0442\u043e\u044f\u0449\u0443\u044e \u043a\u043d\u043e\u043f\u043a\u0443 \u0430\u0442\u0430\u043a\u0438 \u0438 \u043d\u0430\u0432\u043e\u0434\u044f \u043d\u0430 \u0431\u043b\u043e\u043a \u043f\u0440\u0438\u0446\u0435\u043b
+     * (\u0432\u0430\u043d\u0438\u043b\u044c \u0441\u0431\u0440\u0430\u0441\u044b\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u043b\u043e\u043c\u0430\u043d\u0438\u044f \u043a\u0430\u0436\u0434\u044b\u0439 \u0442\u0438\u043a, \u0435\u0441\u043b\u0438 \u041b\u041a\u041c \u043d\u0435 \u0437\u0430\u0436\u0430\u0442\u0430).
      *
-     * Старая версия вызывала gameMode.continueDestroyBlock() напрямую раз в тик.
-     * Но ваниль в начале каждого тика, пока ЛКМ не зажата, вызывает
-     * gameMode.stopDestroyBlock() — прогресс ломания обнулялся каждый тик,
-     * и блок, который не ломается за 1 тик (глубинный сланец, руда), не ломался никогда.
-     *
-     * @return true — работаем над блоком (наводимся/ломаем); false — не можем (нет кирки и т.п.)
+     * @return true \u2014 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u043c \u043d\u0430\u0434 \u0431\u043b\u043e\u043a\u043e\u043c (\u043d\u0430\u0432\u043e\u0434\u0438\u043c\u0441\u044f/\u043b\u043e\u043c\u0430\u0435\u043c); false \u2014 \u043d\u0435 \u043c\u043e\u0436\u0435\u043c (\u043d\u0435\u0442 \u043a\u0438\u0440\u043a\u0438 \u0438 \u0442.\u043f.)
      */
     private static boolean tryMine(Minecraft mc, BlockPos pos) {
         BlockState state = mc.level.getBlockState(pos);
@@ -541,15 +759,19 @@ public class AutoMinerLogic {
         LocalPlayer player = mc.player;
         if (!preparePickaxe(player.getInventory(), ore)) {
             warn(mc, ore
-                    ? "§cНет кирки на Шёлк (или прочность <= 10)"
-                    : "§cНет кирки на Эффективность (или прочность <= 10)");
+                    ? "\u00a7c\u041d\u0435\u0442 \u043a\u0438\u0440\u043a\u0438 \u043d\u0430 \u0428\u0451\u043b\u043a (\u0438\u043b\u0438 \u043f\u0440\u043e\u0447\u043d\u043e\u0441\u0442\u044c <= 10)"
+                    : "\u00a7c\u041d\u0435\u0442 \u043a\u0438\u0440\u043a\u0438 \u043d\u0430 \u042d\u0444\u0444\u0435\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c (\u0438\u043b\u0438 \u043f\u0440\u043e\u0447\u043d\u043e\u0441\u0442\u044c <= 10)");
+            if (!ore && ++noToolTicks > NO_TOOL_TICKS) {
+                disable(mc, "\u00a7c\u041d\u0435\u0442 \u0440\u0430\u0431\u043e\u0447\u0435\u0439 \u043a\u0438\u0440\u043a\u0438, \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d");
+            }
             return false;
         }
+        if (!ore) noToolTicks = 0;
 
         if (!pos.equals(mineTarget)) {
             mineTarget = pos;
             aimMiss = 0;
-            stuckTicks = 0; // новый блок в работе — это прогресс, а не «застрял»
+            stuckTicks = 0; // \u043d\u043e\u0432\u044b\u0439 \u0431\u043b\u043e\u043a \u0432 \u0440\u0430\u0431\u043e\u0442\u0435 \u2014 \u044d\u0442\u043e \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441, \u0430 \u043d\u0435 \u00ab\u0437\u0430\u0441\u0442\u0440\u044f\u043b\u00bb
         }
         if (ore) oreTarget = pos;
 
@@ -557,11 +779,11 @@ public class AutoMinerLogic {
 
         if (crosshairOn(mc, pos)) {
             aimMiss = 0;
-            mc.options.keyAttack.setDown(true); // ванильный цикл сам накопит прогресс
+            mc.options.keyAttack.setDown(true);
         } else if (++aimMiss > AIM_TIMEOUT) {
-            // до блока не дотянуться прицелом (закрыт другим блоком)
+            // \u0434\u043e \u0431\u043b\u043e\u043a\u0430 \u043d\u0435 \u0434\u043e\u0442\u044f\u043d\u0443\u0442\u044c\u0441\u044f \u043f\u0440\u0438\u0446\u0435\u043b\u043e\u043c (\u0437\u0430\u043a\u0440\u044b\u0442 \u0434\u0440\u0443\u0433\u0438\u043c \u0431\u043b\u043e\u043a\u043e\u043c)
             IGNORED.add(pos);
-            if (!ore) blocksDugInStraightLine = 1000; // заставим свернуть
+            if (!ore) blocksDugInStraightLine = 1000; // \u0437\u0430\u0441\u0442\u0430\u0432\u0438\u043c \u0441\u0432\u0435\u0440\u043d\u0443\u0442\u044c
             aimMiss = 0;
             return false;
         }
@@ -585,20 +807,16 @@ public class AutoMinerLogic {
         player.setXRot((float) (-Math.toDegrees(Math.atan2(dy, horiz))));
     }
 
-    // ------------------------------------------------------------------ подбор дропа (НОВОЕ)
+    // ================================================================== \u043f\u043e\u0434\u0431\u043e\u0440 \u0434\u0440\u043e\u043f\u0430
 
-    private static boolean handlePickup(Minecraft mc) {
-        if (pickupTicks <= 0) return false;
-        pickupTicks--;
-
+    private static ItemEntity findPickupTarget(Minecraft mc) {
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
-
         ItemEntity best = null;
         double bestDist = PICKUP_RADIUS * PICKUP_RADIUS;
         for (ItemEntity it : level.getEntitiesOfClass(ItemEntity.class, player.getBoundingBox().inflate(PICKUP_RADIUS))) {
-            if (!it.isAlive()) continue;
-            if (JUNK.contains(it.getItem().getItem())) continue; // за булыжником не бегаем
+            if (!it.isAlive() || GIVE_UP.contains(it.getId())) continue;
+            if (JUNK.contains(it.getItem().getItem())) continue; // \u0437\u0430 \u0431\u0443\u043b\u044b\u0436\u043d\u0438\u043a\u043e\u043c \u043d\u0435 \u0431\u0435\u0433\u0430\u0435\u043c
             BlockPos ip = it.blockPosition();
             if (hasLavaAround(level, ip) || hasLavaAround(level, ip.below())) continue;
             double d = it.distanceToSqr(player);
@@ -607,13 +825,30 @@ public class AutoMinerLogic {
                 best = it;
             }
         }
+        return best;
+    }
 
+    private static boolean handlePickup(Minecraft mc) {
+        if (pickupTicks <= 0) {
+            // \u043f\u0435\u0440\u0438\u043e\u0434\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c, \u043d\u0435 \u0432\u0430\u043b\u044f\u0435\u0442\u0441\u044f \u043b\u0438 \u0440\u044f\u0434\u043e\u043c \u0447\u0442\u043e-\u0442\u043e \u0446\u0435\u043d\u043d\u043e\u0435
+            if (runTicks % 10 != 0 || findPickupTarget(mc) == null) return false;
+            pickupTicks = PICKUP_WINDOW;
+        }
+        pickupTicks--;
+
+        LocalPlayer player = mc.player;
+        ItemEntity best = findPickupTarget(mc);
         if (best == null) {
-            // первые ~15 тиков ждём, пока дроп появится; потом — нечего собирать
+            // \u043f\u0435\u0440\u0432\u044b\u0435 ~15 \u0442\u0438\u043a\u043e\u0432 \u0436\u0434\u0451\u043c, \u043f\u043e\u043a\u0430 \u0434\u0440\u043e\u043f \u043f\u043e\u044f\u0432\u0438\u0442\u0441\u044f; \u043f\u043e\u0442\u043e\u043c \u2014 \u043d\u0435\u0447\u0435\u0433\u043e \u0441\u043e\u0431\u0438\u0440\u0430\u0442\u044c
             if (pickupTicks < PICKUP_WINDOW - 15) pickupTicks = 0;
             return false;
         }
+        if (pickupTicks == 0) {
+            GIVE_UP.add(best.getId()); // \u043d\u0435 \u0434\u043e\u0448\u043b\u0438 \u0437\u0430 \u043e\u0442\u0432\u0435\u0434\u0451\u043d\u043d\u043e\u0435 \u0432\u0440\u0435\u043c\u044f \u2014 \u0431\u043e\u043b\u044c\u0448\u0435 \u043d\u0435 \u0442\u0440\u043e\u0433\u0430\u0435\u043c
+            return false;
+        }
 
+        status = "\u043f\u043e\u0434\u0431\u0438\u0440\u0430\u044e \u0434\u0440\u043e\u043f";
         Vec3 t = best.position();
         double dx = t.x - player.getX();
         double dz = t.z - player.getZ();
@@ -625,7 +860,7 @@ public class AutoMinerLogic {
         return true;
     }
 
-    // ------------------------------------------------------------------ вспомогательное
+    // ================================================================== \u0432\u0441\u043f\u043e\u043c\u043e\u0433\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0435
 
     private static boolean isAlmostBroken(ItemStack s) {
         return s.isDamageableItem() && s.getMaxDamage() - s.getDamageValue() <= SAFE_DURABILITY;
@@ -652,19 +887,25 @@ public class AutoMinerLogic {
         return !s.isAir() && s.getFluidState().isEmpty() && !s.is(Blocks.BEDROCK);
     }
 
-    private static BlockPos findVisibleOre(ClientLevel level, BlockPos origin) {
-        int r = 2;
-        for (int dx = -r; dx <= r; dx++) {
-            for (int dy = -1; dy <= 2; dy++) {
-                for (int dz = -r; dz <= r; dz++) {
+    /** \u0411\u043b\u0438\u0436\u0430\u0439\u0448\u0430\u044f \u0412\u0418\u0414\u0418\u041c\u0410\u042f \u0440\u0443\u0434\u0430 (\u0441 \u0432\u043e\u0437\u0434\u0443\u0445\u043e\u043c \u0440\u044f\u0434\u043e\u043c) \u0432 \u043f\u0440\u0435\u0434\u0435\u043b\u0430\u0445 \u0434\u043e\u0441\u044f\u0433\u0430\u0435\u043c\u043e\u0441\u0442\u0438. \u0421\u043a\u0440\u044b\u0442\u044b\u0435 \u0440\u0443\u0434\u044b \u043d\u0435 \u0442\u0440\u043e\u0433\u0430\u0435\u043c. */
+    private static BlockPos findVisibleOre(ClientLevel level, LocalPlayer player, BlockPos origin) {
+        Vec3 eye = player.getEyePosition();
+        BlockPos best = null;
+        double bestDist = ORE_REACH * ORE_REACH;
+        for (int dx = -ORE_SCAN; dx <= ORE_SCAN; dx++) {
+            for (int dy = -2; dy <= ORE_SCAN; dy++) {
+                for (int dz = -ORE_SCAN; dz <= ORE_SCAN; dz++) {
                     BlockPos p = origin.offset(dx, dy, dz);
-                    if (isTargetOre(level.getBlockState(p)) && !IGNORED.contains(p) && hasAirNeighbor(level, p)) {
-                        return p;
+                    if (IGNORED.contains(p) || !isTargetOre(level.getBlockState(p))) continue;
+                    double d = Vec3.atCenterOf(p).distanceToSqr(eye);
+                    if (d <= bestDist && hasAirNeighbor(level, p)) {
+                        bestDist = d;
+                        best = p;
                     }
                 }
             }
         }
-        return null;
+        return best;
     }
 
     private static boolean hasAirNeighbor(ClientLevel level, BlockPos p) {
@@ -722,6 +963,7 @@ public class AutoMinerLogic {
             if (isPathSafe(level, pos, d)) {
                 currentDirection = d;
                 blocksDugInStraightLine = 0;
+                centerTicks = 0;
                 return true;
             }
         }

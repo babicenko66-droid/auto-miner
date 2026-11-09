@@ -10,13 +10,16 @@ public class AutoMinerMod implements ClientModInitializer {
     public void onInitializeClient() {
         ClientTickEvents.END_CLIENT_TICK.register(AutoMinerLogic::tick);
 
-        // Включение/выключение: напишите в чат .miner (сообщение на сервер не уходит)
         ClientSendMessageEvents.ALLOW_CHAT.register(message -> {
-            if (message.trim().equalsIgnoreCase(".miner")) {
-                AutoMinerLogic.toggle(Minecraft.getInstance());
+            String text = message.trim();
+            if (text.equalsIgnoreCase(".miner") || text.toLowerCase().startsWith(".miner ")) {
+                String arg = text.length() > 6 ? text.substring(6).trim() : "";
+                AutoMinerLogic.command(Minecraft.getInstance(), arg);
                 return false;
             }
             return true;
         });
+
+        MinerHud.register();
     }
 }
