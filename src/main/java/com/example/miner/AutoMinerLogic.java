@@ -104,6 +104,9 @@ public class AutoMinerLogic {
     private static Direction currentDirection = null;
     private static BlockPos lastPos = null;
     private static BlockPos stuckPos = null;
+        private static boolean isReturningToSafeY = false;
+    private static final java.util.Set<BlockPos> IGNORED_LOW_ORES = new java.util.HashSet<>();
+
     private static int stuckTicks = 0;
     private static int blocksDugInStraightLine = 0;
     private static int messageCooldown = 0;
@@ -300,13 +303,86 @@ public class AutoMinerLogic {
         if (mc.player == null || mc.level == null || mc.gameMode == null) return;
 
         try {
-            run(mc);
+          if (handleLowHeightLogic(mc, mc.level, mc.player)) return;
+  run(mc);
         } catch (RuntimeException e) {
             // \u043e\u0448\u0438\u0431\u043a\u0430 \u0432 \u043b\u043e\u0433\u0438\u043a\u0435 \u043d\u0435 \u0434\u043e\u043b\u0436\u043d\u0430 \u0440\u043e\u043d\u044f\u0442\u044c \u0438\u0433\u0440\u0443
             e.printStackTrace();
             disable(mc, "\u00a7c\u041e\u0448\u0438\u0431\u043a\u0430 \u0430\u0432\u0442\u043e-\u043c\u0430\u0439\u043d\u0435\u0440\u0430: " + e);
         } finally {
             if (!enabled) releaseKeys(mc);
+        }
+    }
+    private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
+        BlockPos playerPos = player.blockPosition();
+        if (playerPos.getY() < MIN_Y) {
+            BlockPos diamondPos = findNearestOre(level, playerPos, ORE_SCAN);
+            if (diamondPos != null && !IGNORED_LOW_ORES.contains(diamondPos)) {
+                isReturningToSafeY = false;
+                mineBlockPos(mc, level, player, diamondPos);
+                return true; 
+            } else {
+                isReturningToSafeY = true;
+            }
+        }
+        if (isReturningToSafeY) {
+            if (playerPos.getY() >= MIN_Y) {
+                isReturningToSafeY = false;
+                if (mc.options.keyJump.isDown()) {
+                    mc.options.keyJump.setDown(false);
+                }
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."), true);
+                return false; 
+            } else {
+                BlockPos upPos = playerPos.above(2);
+                net.minecraft.world.level.block.state.BlockState upState = level.getBlockState(upPos);
+                if (!upState.isAir() && upState.getBlock() != net.minecraft.world.level.block.Blocks.BEDROCK) {
+                    mineBlockPos(mc, level, player, upPos);
+                } else {
+                    mc.options.keyJump.setDown(true);
+                }
+                return true; 
+            }
+        }
+        return false;
+    }
+
+    private static BlockPos findNearestOre(net.minecraft.client.multiplayer.ClientLevel level, BlockPos startPos, int radius) {
+        BlockPos nearest = null;
+        double closestDist = Double.MAX_VALUE;
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    BlockPos target = startPos.offset(x, y, z);
+                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(target);
+                    if (TARGET_ORES.contains(state.getBlock())) {
+                        double dist = startPos.distSqr(target);
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            nearest = target;
+                        }
+                    }
+                }
+            }
+        }
+        return nearest;
+    }
+
+    private static void mineBlockPos(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player, BlockPos pos) {
+        net.minecraft.world.phys.Vec3 targetVec = net.minecraft.world.phys.Vec3.atCenterOf(pos);
+        net.minecraft.world.phys.Vec3 playerEye = player.getEyePosition(1.0F);
+        double dX = targetVec.x - playerEye.x;
+        double dY = targetVec.y - playerEye.y;
+        double dZ = targetVec.z - playerEye.z;
+        double dXZ = Math.sqrt(dX * dX + dZ * dZ);
+        float yaw = (float) (Math.toDegrees(Math.atan2(dZ, dX)) - 90.0D);
+        float pitch = (float) -Math.toDegrees(Math.atan2(dY, dXZ));
+        player.setYRot(yaw);
+        player.setXRot(pitch);
+        mc.gameMode.startDestroyBlock(pos, net.minecraft.core.Direction.UP);
+        player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        if (pos.getY() < MIN_Y && level.getBlockState(pos).getBlock() == net.minecraft.world.level.block.Blocks.BEDROCK) {
+            IGNORED_LOW_ORES.add(pos);
         }
     }
 
