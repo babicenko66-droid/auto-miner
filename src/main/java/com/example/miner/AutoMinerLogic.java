@@ -46,8 +46,8 @@ public class AutoMinerLogic {
     /** \u041d\u0438\u0436\u0435 \u044d\u0442\u043e\u0439 \u0432\u044b\u0441\u043e\u0442\u044b \u0431\u043e\u0442 \u043d\u0438\u043a\u043e\u0433\u0434\u0430 \u043d\u0435 \u043e\u043f\u0443\u0441\u043a\u0430\u0435\u0442\u0441\u044f (\u0442\u0430\u043c \u0431\u0435\u0434\u0440\u043e\u043a). */
     private static final int MIN_Y = -59;
     /** \u0414\u0438\u0430\u043f\u0430\u0437\u043e\u043d \u0432\u044b\u0441\u043e\u0442, \u043c\u0435\u0436\u0434\u0443 \u043a\u043e\u0442\u043e\u0440\u044b\u043c\u0438 \u0431\u043e\u0442 \u0438\u043d\u043e\u0433\u0434\u0430 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0430\u0435\u0442\u0441\u044f. */
-    private static final int HEIGHT_MIN = -59;
-    private static final int HEIGHT_MAX = -54;
+    private static final int HEIGHT_MIN = -57;
+    private static final int HEIGHT_MAX = -57;
     /** \u0428\u0430\u043d\u0441 (\u0432 %) \u0441\u043c\u0435\u043d\u0438\u0442\u044c \u0432\u044b\u0441\u043e\u0442\u0443 \u043a\u0430\u0436\u0434\u044b\u0439 \u0440\u0430\u0437, \u043a\u043e\u0433\u0434\u0430 \u0431\u043e\u0442 \u0437\u0430\u043a\u0430\u043d\u0447\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u044f\u043c\u043e\u0439 \u0443\u0447\u0430\u0441\u0442\u043e\u043a \u0438 \u043f\u043e\u0432\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442. */
     private static final int HEIGHT_CHANGE_PERCENT = 0;
 
@@ -313,7 +313,35 @@ public class AutoMinerLogic {
             if (!enabled) releaseKeys(mc);
         }
     }
-    private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
+        private static boolean handleLowHeightLogic(Minecraft mc, net.minecraft.client.multiplayer.ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
+        BlockPos playerPos = player.blockPosition();
+
+        if (playerPos.getY() < MIN_Y) {
+            isReturningToSafeY = true;
+            
+            BlockPos upPos = playerPos.above(2);
+            net.minecraft.world.level.block.state.BlockState upState = level.getBlockState(upPos);
+            
+            if (!upState.isAir() && upState.getBlock() != net.minecraft.world.level.block.Blocks.BEDROCK) {
+                mineBlockPos(mc, level, player, upPos);
+                mc.options.keyJump.setDown(false);
+            } else {
+                mc.options.keyJump.setDown(true);
+            }
+            return true;
+        }
+
+        if (isReturningToSafeY && playerPos.getY() >= MIN_Y) {
+            isReturningToSafeY = false;
+            if (mc.options.keyJump.isDown()) {
+                mc.options.keyJump.setDown(false);
+            }
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§aВернулся на безопасную высоту. Продолжаю майнинг."));
+        }
+
+        return false;
+    }
+
               if (pickupTicks > 0) {
             return false;
         }
